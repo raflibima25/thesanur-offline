@@ -117,13 +117,7 @@ const HomePage = () => {
           <div className="menus-button grid grid-cols-4 mt-6 gap-4 lg:gap-16 px-0 lg:px-10">
             <div
               className="flex flex-col gap-2"
-              onClick={() => {
-                if (isOnline) {
-                  navigate("/scan-qrcode");
-                } else {
-                  showInfoToast("QR scanner is available in offline mode, scan results will be saved");
-                }
-              }}
+              onClick={() => navigate("/scan-qrcode")}
             >
               <div className="lg:h-24 cursor-pointer flex flex-row items-center justify-center rounded-3xl bg-gray-200">
                 <img className="w-8 lg:w-12 my-4 mx-4" src={QRCodeIcon} alt="Back" />
