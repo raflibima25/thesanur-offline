@@ -3,7 +3,7 @@ import { checkDeviceType, handleRedirect } from "../utils/deviceDetection";
 
 export const useDeviceDetection = () => {
   const [isMobile, setIsMobile] = useState(false);
-  const isMobileDomain = window.location.hostname.startsWith("m.");
+  const isMobileDomain = window.location.hostname.startsWith("m-");
   const reactAppEnvIsMobile = import.meta.env.VITE_REACT_APP_IS_MOBILE === "true";
 
   const isDesktop = !isMobile && !isMobileDomain && !reactAppEnvIsMobile;

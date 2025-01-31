@@ -13,7 +13,7 @@ export const checkDeviceType = () => {
   return {
     // Kombinasi deteksi screen width dan user agent
     isMobileDevice: currentWidth <= MOBILE_BREAKPOINT || isMobileUserAgent,
-    isMobileDomain: currentHost.startsWith("m."),
+    isMobileDomain: currentHost.startsWith("m-"),
     currentHost,
   };
 };

@@ -60,9 +60,9 @@ export const AuthContextProvider = ({ children }) => {
     try {
       const protocol = "https://";
       const currentDomain = window.location.hostname;
-      const redirectUrl = currentDomain.startsWith("m.")
-        ? `${protocol}m.thesanur.sangkuriang.co.id/home`
-        : `${protocol}thesanur.sangkuriang.co.id/profile`;
+      const redirectUrl = currentDomain.startsWith("m-")
+        ? `${protocol}m-poc-the-sanur-redirect.vercel.app/home`
+        : `${protocol}poc-the-sanur-redirect.vercel.app/profile`;
 
       let options = {
         redirectTo: redirectUrl,

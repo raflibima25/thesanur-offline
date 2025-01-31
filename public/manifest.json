@@ -86,12 +86,12 @@
     ],
     "url_handlers": [
         {
-            "origin": "https://m.thesanur.sangkuriang.co.id"
+            "origin": "https://m-poc-the-sanur-redirect.vercel.app.co.id"
         }
     ],
     "web_apps": [
         {
-            "manifest": "https://m.thesanur.sangkuriang.co.id/manifest.json",
+            "manifest": "https://m-poc-the-sanur-redirect.vercel.app/manifest.json",
             "details": {
                 "paths": [
                     "/*"

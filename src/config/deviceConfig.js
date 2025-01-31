@@ -6,8 +6,8 @@ const deviceConfig = {
   },
   prod: {
     MOBILE_BREAKPOINT: 768,
-    MOBILE_DOMAIN: "m.thesanur.sangkuriang.co.id",
-    DESKTOP_DOMAIN: "thesanur.sangkuriang.co.id",
+    MOBILE_DOMAIN: "m-poc-the-sanur-redirect.vercel.app",
+    DESKTOP_DOMAIN: "poc-the-sanur-redirect.vercel.app",
   },
 };
 
