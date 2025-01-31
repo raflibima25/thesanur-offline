@@ -7,11 +7,13 @@ import ScanQRCodePage from "@/pages/ScanQRCodePage";
 import NotFoundPage from "@/pages/NotFoundPage";
 import InstallPrompt from "@/components/InstallPrompt";
 import PrivateRoute from "@/components/PrivateRoute";
+import ConnectionStatus from "@/components/ConnectionStatus";
 
 export const MobileRoutes = createBrowserRouter([
   {
     element: (
       <>
+        <ConnectionStatus />
         <InstallPrompt />
         <Outlet />
       </>

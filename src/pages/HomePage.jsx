@@ -15,32 +15,15 @@ import { UserAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../context/UserContext";
 import { useLocation } from "@/context/LocationContext";
-import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { showInfoToast } from "@/utils/toast";
 
 const HomePage = () => {
   const navigate = useNavigate();
   const { session } = UserAuth();
   const { user } = useUser();
   const { locationData, isLoading: isLoadingLocation } = useLocation();
-  const { isOnline, isSyncing } = useOfflineSync();
-
-  const ConnectionStatus = () => {
-    if (!isOnline || isSyncing) {
-      return (
-        <div className={`px-4 py-2 rounded-lg text-sm ${isOnline ? "bg-blue-100" : "bg-yellow-100"}`}>
-          {!isOnline && <p>You are offline. Some features may be limited.</p>}
-          {isSyncing && <p>Synchronize data...</p>}
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="h-screen max-h-ful">
-      <ConnectionStatus />
-
       <section className="header flex lg:hidden bg-white">
         <div className="flex flex-col items-center justify-center w-screen bg-[url('/assets/background/background-homepage.svg')] bg-cover bg-top rounded-b-3xl">
           <div className="flex flex-col items-center justify-center w-screen z-20  py-7 px-6">
@@ -80,18 +63,14 @@ const HomePage = () => {
         <div className="content lg:max-w-3xl lg:mx-auto flex flex-col px-6 py-6 lg:px-12 lg:py-12 lg:rounded-2xl bg-white">
           <div
             className="location cursor-pointer flex flex-row items-center justify-between bg-black px-3 py-3 lg:px-4 rounded-2xl gap-1 lg:gap-2"
-            onClick={() => {
-              if (isOnline || locationData?.coords) {
-                navigate("/location-maps", {
-                  state: {
-                    locationCoords: locationData?.coords,
-                    address: locationData?.fullAddress,
-                  },
-                });
-              } else {
-                showInfoToast("Map feature requires internet connection");
-              }
-            }}
+            onClick={() =>
+              navigate("/location-maps", {
+                state: {
+                  locationCoords: locationData?.coords,
+                  address: locationData?.fullAddress,
+                },
+              })
+            }
           >
             <div className="flex flex-row items-center gap-2 lg:gap-3">
               <img className="w-3 lg:w-4" src={LocationIcon} alt="Back" />
