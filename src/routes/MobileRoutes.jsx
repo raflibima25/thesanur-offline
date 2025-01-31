@@ -8,6 +8,7 @@ import NotFoundPage from "@/pages/NotFoundPage";
 import InstallPrompt from "@/components/InstallPrompt";
 import PrivateRoute from "@/components/PrivateRoute";
 import ConnectionStatus from "@/components/ConnectionStatus";
+import PageWrapper from "@/components/PageWrapper";
 
 export const MobileRoutes = createBrowserRouter([
   {
@@ -15,7 +16,9 @@ export const MobileRoutes = createBrowserRouter([
       <>
         <ConnectionStatus />
         <InstallPrompt />
-        <Outlet />
+        <PageWrapper>
+          <Outlet />
+        </PageWrapper>
       </>
     ),
     children: [
