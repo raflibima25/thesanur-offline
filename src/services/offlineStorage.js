@@ -1,5 +1,5 @@
 import { openDB } from "idb";
-import { supabase } from "@/supabaseClient";
+import { supabase } from "../../supabaseClient";
 
 const DB_NAME = "offlineDB";
 const STORE_NAME = "offlineStore";
