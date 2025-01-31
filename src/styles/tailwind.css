@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+    font-family: 'Iowan Old Style';
+    src: url('../../public/assets/fonts/iowanoldst-bt/bitstream-iowan-old-style-bt-586c36a8d7712.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }

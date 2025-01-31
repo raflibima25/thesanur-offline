@@ -1,0 +1,102 @@
+{
+    "name": "PWA The Sanur",
+    "short_name": "PWA The Sanur",
+    "description": "A Progressive Web App - The Sanur",
+    "scope": "/",
+    "start_url": "/?openInApp=true&source=pwa",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#F1B81C",
+    "orientation": "portrait",
+    "launch_handler": {
+        "client_mode": ["focus-existing", "auto"]
+    },
+    "handle_links": "preferred",
+    "categories": ["lifestyle", "health"],
+    "prefer_related_applications": false,
+    "capture_links": "existing-client-prefer",
+    "shortcuts": [
+        {
+            "name": "Open The Sanur",
+            "url": "/?openInApp=true",
+            "description": "Open The Sanur App"
+        }
+    ],
+    "icons": [
+        {
+            "src": "assets/icons/ic_launcher/icon-48x48.png",
+            "sizes": "48x48",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-72x72.png",
+            "sizes": "72x72",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-96x96.png",
+            "sizes": "96x96",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-128x128.png",
+            "sizes": "128x128",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-144x144.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-152x152.png",
+            "sizes": "152x152",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-256x256.png",
+            "sizes": "256x256",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-384x384.png",
+            "sizes": "384x384",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "assets/icons/ic_launcher/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "url_handlers": [
+        {
+            "origin": "https://m.thesanur.sangkuriang.co.id"
+        }
+    ],
+    "web_apps": [
+        {
+            "manifest": "https://m.thesanur.sangkuriang.co.id/manifest.json",
+            "details": {
+                "paths": [
+                    "/*"
+                ]
+            }
+        }
+    ]
+}
