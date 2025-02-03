@@ -21,6 +21,22 @@ const getAvatarUrl = (url) => {
 export function UserProvider({ children }) {
   const queryClient = useQueryClient();
 
+  const syncOfflineUpdates = useCallback(async () => {
+    if (navigator.onLine) {
+      const pendingUpdates = await ProfileStorage.getPendingUpdates();
+      for (const profile of pendingUpdates) {
+        if (profile.offlineUpdates) {
+          try {
+            await updateProfile(profile.offlineUpdates);
+            await ProfileStorage.clearPendingSync(profile.id);
+          } catch (error) {
+            console.error('Failed to sync update:', error);
+          }
+        }
+      }
+    }
+  }, [updateProfile]);
+
   useEffect(() => {
     if (navigator.onLine) {
       syncOfflineUpdates();
@@ -256,22 +272,6 @@ export function UserProvider({ children }) {
     },
     [user, queryClient],
   );
-
-  const syncOfflineUpdates = useCallback(async () => {
-    if (navigator.onLine) {
-      const pendingUpdates = await ProfileStorage.getPendingUpdates();
-      for (const profile of pendingUpdates) {
-        if (profile.offlineUpdates) {
-          try {
-            await updateProfile(profile.offlineUpdates);
-            await ProfileStorage.clearPendingSync(profile.id);
-          } catch (error) {
-            console.error('Failed to sync update:', error);
-          }
-        }
-      }
-    }
-  }, [updateProfile]);
 
   return (
     <UserContext.Provider

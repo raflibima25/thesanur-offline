@@ -6,9 +6,9 @@ const DB_VERSION = 1;
 
 export class ProfileStorage {
     static async initDB() {
-        return openDB('userDB', 1, {
+        return openDB(DB_NAME, DB_VERSION, {
           upgrade(db) {
-            const store = db.createObjectStore('profile', { keyPath: 'id' });
+            const store = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
             store.createIndex('pendingSync', 'pendingSync');
           },
         });
@@ -16,7 +16,7 @@ export class ProfileStorage {
 
       static async saveProfile(profile) {
         const db = await this.initDB();
-        await db.put('profile', {
+        await db.put(STORE_NAME, {
           ...profile,
           timestamp: new Date().toISOString()
         });
@@ -24,7 +24,7 @@ export class ProfileStorage {
 
       static async saveOfflineUpdate(profile, updates) {
         const db = await this.initDB();
-        await db.put('profile', {
+        await db.put(STORE_NAME, {
           ...profile,
           ...updates,
           pendingSync: true,
@@ -35,18 +35,18 @@ export class ProfileStorage {
 
       static async getPendingUpdates() {
         const db = await this.initDB();
-        const tx = db.transaction('profile');
+        const tx = db.transaction(STORE_NAME);
         const index = tx.store.index('pendingSync');
         return index.getAll(true);
       }
 
       static async clearPendingSync(id) {
         const db = await this.initDB();
-        const profile = await db.get('profile', id);
+        const profile = await db.get(STORE_NAME, id);
         if (profile) {
           delete profile.pendingSync;
           delete profile.offlineUpdates;
-          await db.put('profile', profile);
+          await db.put(STORE_NAME, profile);
         }
       }
 }
