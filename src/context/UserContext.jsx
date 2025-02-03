@@ -154,43 +154,45 @@ export function UserProvider({ children }) {
         if (!session.data.session) {
           throw new Error("No session");
         }
-
+  
         if (!navigator.onLine) {
-          // Coba ambil dari ProfileStorage saat offline
           const cachedProfile = await ProfileStorage.getProfile();
           if (cachedProfile) return cachedProfile;
         }
-
+  
         const {
           data: { user: authUser },
           error: authError,
         } = await supabase.auth.getUser();
-
+  
         if (authError) throw authError;
         if (!authUser) return null;
-
-        // Coba ambil profil yang ada
+  
+        // Cek existing profile dulu
         const { data: existingProfile, error: fetchError } = await supabase
           .from("user_profiles")
           .select("*")
           .eq("user_id", authUser.id)
           .maybeSingle();
-
+  
         if (fetchError && fetchError.code !== "PGRST116") {
           console.error("Error fetching profile:", fetchError);
           throw fetchError;
         }
-
+  
         // Jika profile sudah ada
         if (existingProfile) {
-          await ProfileStorage.saveProfile({
+          const profile = {
             ...authUser,
             ...existingProfile,
             avatar_url: existingProfile.avatar_url ? getAvatarUrl(existingProfile.avatar_url) : "",
-          });
+          };
+          // Save ke IndexedDB
+          await ProfileStorage.saveProfile(profile);
+          return profile;
         }
-
-        // Jika profile belum ada, buat baru
+  
+        // Jika belum ada, buat baru
         const newProfile = {
           user_id: authUser.id,
           email: authUser.email,
@@ -199,19 +201,23 @@ export function UserProvider({ children }) {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
-
+  
         const { data: createdProfile, error: createError } = await supabase
           .from("user_profiles")
-          .insert(newProfile)
+          .upsert(newProfile)
           .single();
-
+  
         if (createError) throw createError;
-
-        return {
+  
+        const profile = {
           ...authUser,
           ...createdProfile,
           avatar_url: createdProfile.avatar_url ? getAvatarUrl(createdProfile.avatar_url) : "",
         };
+  
+        await ProfileStorage.saveProfile(profile);
+        return profile;
+  
       } catch (error) {
         console.error("Error in queryFn:", error);
         if (!navigator.onLine) {

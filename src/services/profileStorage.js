@@ -41,9 +41,17 @@ export class ProfileStorage {
 
       static async getPendingUpdates() {
         const db = await this.initDB();
-        const tx = db.transaction(STORE_NAME);
-        const index = tx.store.index('pendingSync');
-        return index.getAll(true);
+        // Gunakan getFromIndex untuk mengambil data berdasarkan index
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const index = store.index('pendingSync');
+        try {
+          // Query menggunakan index dengan IDBKeyRange
+          return await index.getAll(IDBKeyRange.only(true));
+        } catch (error) {
+          console.error('Error getting pending updates:', error);
+          return [];
+        }
       }
 
       static async clearPendingSync(id) {
