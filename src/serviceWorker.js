@@ -11,7 +11,7 @@ const API_CACHE_URLS = [
 
 const CRITICAL_ASSETS = [
   '/',
-  '/index.htmL',
+  '/index.html',
   '/manifest.json',
   '/service-worker.js',
   '/static/js/main.chunk.js',
@@ -85,7 +85,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       (async () => {
         try {
-          // Cek cache terlebih dahulu
+          // Coba cache terlebih dahulu
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match(event.request);
           
@@ -98,20 +98,26 @@ self.addEventListener("fetch", (event) => {
             const networkResponse = await fetch(event.request);
             if (networkResponse.ok) {
               const clonedResponse = networkResponse.clone();
-              cache.put(event.request, clonedResponse);
+              await cache.put(event.request, clonedResponse);
               return networkResponse;
             }
           } catch (error) {
             console.log('Network request failed, falling back to cache');
           }
 
-          // Jika network gagal atau response tidak ok, gunakan cached index.html
+          // Jika network gagal, coba cached index.html
           const cachedIndex = await cache.match('/index.html');
           if (cachedIndex) {
-            return cachedIndex;
+            return new Response(cachedIndex.body, {
+              headers: {
+                ...cachedIndex.headers,
+                'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:",
+                'Cache-Control': 'no-store'
+              }
+            });
           }
 
-          // Jika masih gagal, gunakan offline page
+          // Fallback terakhir ke offline page
           return cache.match(OFFLINE_URL);
         } catch (error) {
           console.error('Error in navigate handler:', error);

@@ -1,28 +1,37 @@
 export function registerServiceWorker() {
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/service-worker.js").then(
+    // Register immediately
+    navigator.serviceWorker.register("/service-worker.js", {
+      scope: '/',
+      updateViaCache: 'none'
+    }).then(
       async (registration) => {
         console.log("Service Worker registered with scope:", registration.scope);
         
-        await registration.update();
-        
-        if (registration.waiting) {
-          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        if (registration.active) {
+          registration.active.postMessage({ type: "SKIP_WAITING" });
         }
         
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              newWorker.postMessage({ type: "SKIP_WAITING" });
-            }
-          });
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed') {
+                newWorker.postMessage({ type: "SKIP_WAITING" });
+              }
+            });
+          }
         });
-      },
-      (error) => {
-        console.error("Service Worker registration failed:", error);
+
+        try {
+          await registration.update();
+        } catch (error) {
+          console.log('Update check failed:', error);
+        }
       }
-    );
+    ).catch((error) => {
+      console.error("Service Worker registration failed:", error);
+    });
 
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {

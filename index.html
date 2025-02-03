@@ -15,11 +15,21 @@
     <title>The Sanur</title>
 
     <script>
+      if (!navigator.onLine) {
+        document.documentElement.style.backgroundColor = '#1a1a1a';
+        document.body.style.backgroundColor = '#1a1a1a';
+      }
+
       window.addEventListener('load', () => {
-          if (!navigator.onLine) {
-              // Prevent browser's default offline screen
-              document.body.style.backgroundColor = '#ffffff';
-          }
+        if (!navigator.onLine) {
+          document.documentElement.style.backgroundColor = '#1a1a1a';
+          document.body.style.backgroundColor = '#1a1a1a';
+        }
+      });
+
+      window.addEventListener('offline', () => {
+        document.documentElement.style.backgroundColor = '#1a1a1a';
+        document.body.style.backgroundColor = '#1a1a1a';
       });
   </script>
   </head>
