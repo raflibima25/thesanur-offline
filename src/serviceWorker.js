@@ -2,6 +2,11 @@ const CACHE_NAME = "pwa-the-sanur-v1";
 const DYNAMIC_CACHE = "dynamic-v1";
 const OFFLINE_URL = "/offline.html";
 const API_CACHE = "api-cache-v1";
+const API_CACHE_URLS = [
+  '/auth/user',
+  '/user_profiles',
+  '/reverse' // untuk geocoding
+];
 
 const CACHE_MAP_ASSETS = ["/leaflet.css", "/marker-icon.png", "/marker-icon-2x.png", "/marker-shadow.png"];
 
@@ -91,46 +96,37 @@ self.addEventListener("fetch", (event) => {
   // Handle API requests differently
   if (isApiRequest(event.request)) {
     event.respondWith(
-      fetch(event.request.clone())
-        .then((response) => {
-          // Cache successful GET requests to API
-          if (response.ok && event.request.method === "GET") {
+      fetch(event.request.clone(), {
+        credentials: 'same-origin',
+        cache: 'no-cache'
+      })
+      .then(response => {
+        if (response.ok && event.request.method === "GET") {
+          // Cache hanya untuk URL yang penting
+          if (API_CACHE_URLS.some(url => event.request.url.includes(url))) {
             const responseToCache = response.clone();
-            caches.open(API_CACHE).then((cache) => {
+            caches.open(API_CACHE).then(cache => {
               cache.put(event.request, responseToCache);
             });
           }
-          return response;
-        })
-        .catch(async () => {
-          // On failure, try to return cached API response
-          const cachedResponse = await caches.match(event.request);
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-
-          // If it's a POST/PUT/DELETE request, store in IndexedDB for later sync
-          if (event.request.method !== "GET") {
-            // Broadcast to the app that we need to store this request
-            self.clients.matchAll().then((clients) => {
-              clients.forEach((client) => {
-                client.postMessage({
-                  type: "STORE_OFFLINE_REQUEST",
-                  payload: {
-                    url: event.request.url,
-                    method: event.request.method,
-                    body: event.request.clone().json(),
-                  },
-                });
-              });
-            });
-          }
-
-          return new Response(JSON.stringify({ error: "Network error, request queued for sync" }), {
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cachedResponse = await caches.match(event.request);
+        return cachedResponse || new Response(
+          JSON.stringify({ 
+            error: "Network error",
+            offline: true 
+          }), {
             status: 503,
-            headers: { "Content-Type": "application/json" },
-          });
-        }),
+            headers: { 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-store'
+            }
+          }
+        );
+      })
     );
     return;
   }
@@ -161,7 +157,15 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => {
           if (event.request.mode === "navigate") {
-            return caches.match(OFFLINE_URL);
+            event.respondWith(
+              caches.match(event.request)
+                .then(response => {
+                  if (response) return response;
+                  return fetch(event.request)
+                    .catch(() => caches.match('/index.html'));
+                })
+            );
+            return;
           }
 
           return new Response("Network error happened", {

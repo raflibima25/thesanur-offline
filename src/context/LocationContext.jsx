@@ -32,6 +32,14 @@ export function LocationProvider({ children }) {
         const db = await initDB();
         const cachedLocation = await db.get(STORE_NAME, "latest");
 
+        if (!navigator.onLine) {
+          return cachedLocation || {
+            coords: cachedLocation.coords,
+            summaryAddress: cachedLocation.summaryAddress,
+            fullAddress: cachedLocation.fullAddress
+          };
+        }
+
         if (cachedLocation && !navigator.onLine) {
           return cachedLocation;
         }
@@ -97,6 +105,7 @@ export function LocationProvider({ children }) {
           );
         });
       } catch (error) {
+        console.error('Error:', error);
         // If all fails, try to return cached location
         const db = await initDB();
         const cachedLocation = await db.get(STORE_NAME, "latest");

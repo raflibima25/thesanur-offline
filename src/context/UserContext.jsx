@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../../supabaseClient";
+import { ProfileStorage } from "@/services/profileStorage";
 
 const UserContext = createContext();
 
@@ -44,6 +45,12 @@ export function UserProvider({ children }) {
     queryKey: ["user-profile"],
     queryFn: async () => {
       try {
+        if (!navigator.onLine) {
+          // Coba ambil dari ProfileStorage saat offline
+          const cachedProfile = await ProfileStorage.getProfile();
+          if (cachedProfile) return cachedProfile;
+        }
+
         const {
           data: { user: authUser },
           error: authError,
@@ -66,11 +73,11 @@ export function UserProvider({ children }) {
 
         // Jika profile sudah ada
         if (existingProfile) {
-          return {
+          await ProfileStorage.saveProfile({
             ...authUser,
             ...existingProfile,
             avatar_url: existingProfile.avatar_url ? getAvatarUrl(existingProfile.avatar_url) : "",
-          };
+          });
         }
 
         // Jika profile belum ada, buat baru
@@ -97,7 +104,7 @@ export function UserProvider({ children }) {
         };
       } catch (error) {
         console.error("Error in queryFn:", error);
-        return null;
+        return await ProfileStorage.getProfile();
       }
     },
     retry: 2,
@@ -109,6 +116,19 @@ export function UserProvider({ children }) {
   const updateProfile = useCallback(
     async (updates) => {
       try {
+        if (!navigator.onLine) {
+          // Simpan update ke offline storage
+          const currentProfile = await ProfileStorage.getProfile();
+          const updatedProfile = {
+            ...currentProfile,
+            ...updates,
+            updated_at: new Date().toISOString(),
+            pendingSync: true
+          };
+          await ProfileStorage.saveProfile(updatedProfile);
+          return updatedProfile;
+        }
+
         const {
           data: { user: authUser },
         } = await supabase.auth.getUser();
