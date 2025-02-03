@@ -9,13 +9,18 @@ const UserContext = createContext();
 // Fungsi helper untuk mendapatkan avatar URL
 const getAvatarUrl = (url) => {
   if (!url) return "";
-  if (url.startsWith("http")) return url;
-  try {
-    return supabase.storage.from("avatars").getPublicUrl(url).data.publicUrl;
-  } catch (err) {
-    console.error("Error getting avatar URL:", err);
-    return "";
-  }
+    if (url.startsWith("http")) return url;
+    try {
+        const publicUrl = supabase.storage.from("avatars").getPublicUrl(url).data.publicUrl;
+        if (!publicUrl) {
+            console.warn('Failed to get avatar URL:', url);
+            return "";
+        }
+        return publicUrl;
+    } catch (err) {
+        console.error("Error getting avatar URL:", err);
+        return "";
+    }
 };
 
 export function UserProvider({ children }) {
@@ -91,17 +96,23 @@ export function UserProvider({ children }) {
                 .single();
   
               if (error) throw error;
+
+              const updatedProfile = {
+                ...data,
+                avatar_url: data.avatar_url ? getAvatarUrl(data.avatar_url) : "",
+              };
   
               // Clear pending status
-              await ProfileStorage.clearPendingSync(profile.id);
+              await ProfileStorage.clearPendingSync(profile.user_id);
+              await ProfileStorage.saveProfile(updatedProfile);
               
               // Update UI
               queryClient.setQueryData(["user-profile"], oldData => ({
                 ...oldData,
-                ...data
+                ...updatedProfile
               }));
   
-              console.log('Successfully synced profile:', data);
+              console.log('Successfully synced profile:', updatedProfile);
             } catch (error) {
               console.error('Failed to sync update:', error);
             }
@@ -185,6 +196,7 @@ export function UserProvider({ children }) {
           const profile = {
             ...authUser,
             ...existingProfile,
+            user_id: existingProfile.user_id || authUser.id,
             avatar_url: existingProfile.avatar_url ? getAvatarUrl(existingProfile.avatar_url) : "",
           };
           // Save ke IndexedDB

@@ -18,13 +18,14 @@ export class ProfileStorage {
         });
       }
 
-      static async getProfile() {
+    static async getProfile() {
         try {
             const db = await this.initDB();
-            const tx = db.transaction(STORE_NAME, 'readonly');
-            const store = tx.objectStore(STORE_NAME);
-            const profiles = await store.getAll();
-            return profiles[0]; // Return profile pertama
+            // Gunakan getAll dan filter berdasarkan timestamp terbaru
+            const profiles = await db.getAll(STORE_NAME);
+            return profiles.sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            )[0];
         } catch (error) {
             console.error('Error getting profile:', error);
             return null;
@@ -34,12 +35,16 @@ export class ProfileStorage {
     static async saveProfile(profile) {
         try {
             const db = await this.initDB();
-            await db.put(STORE_NAME, {
+            // tambahkan user_id sebagai key
+            const profileToSave = {
                 ...profile,
+                user_id: profile.user_id || profile.id,
                 timestamp: new Date().toISOString(),
                 pendingSync: false
-            });
-            console.log('Profile saved successfully:', profile);
+            };
+            
+            await db.put(STORE_NAME, profileToSave);
+            console.log('Profile saved successfully:', profileToSave);
         } catch (error) {
             console.error('Error saving profile:', error);
             throw error;
