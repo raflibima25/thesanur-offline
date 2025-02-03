@@ -66,6 +66,92 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Handle navigate requests differently
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      (async () => {
+        try {
+          // Coba cache terlebih dahulu
+          const cache = await caches.open(CACHE_NAME);
+          const cachedResponse = await cache.match(event.request);
+          
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+
+          // Jika tidak ada di cache, coba network
+          const networkResponse = await fetch(event.request);
+          
+          if (networkResponse.ok) {
+            // Cache response untuk penggunaan selanjutnya
+            const clonedResponse = networkResponse.clone();
+            cache.put(event.request, clonedResponse);
+            return networkResponse;
+          }
+          
+          // Jika network response tidak ok, gunakan cached index
+          return cache.match('/index.html');
+        } catch (error) {
+          // Jika network error, gunakan cached index
+          const cache = await caches.open(CACHE_NAME);
+          const cachedIndex = await cache.match('/index.html');
+          
+          if (cachedIndex) {
+            return cachedIndex;
+          }
+          
+          // Jika tidak ada cache sama sekali, kembalikan custom offline response
+          return new Response(
+            `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>The Sanur</title>
+                <style>
+                    body {
+                        margin: 0;
+                        padding: 16px;
+                        font-family: system-ui, -apple-system, sans-serif;
+                        background: #f9fafb;
+                        height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                </style>
+            </head>
+            <body>
+                <div id="root"></div>
+                <script>
+                    // Ini akan memastikan app React kita di-mount
+                    window.addEventListener('load', () => {
+                        if (typeof window.__REACT_ROOT__ !== 'undefined') {
+                            window.__REACT_ROOT__.render(
+                                React.createElement(App, null)
+                            );
+                        }
+                    });
+                </script>
+            </body>
+            </html>
+            `,
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'text/html',
+                'Cache-Control': 'no-cache'
+              }
+            }
+          );
+        }
+      })()
+    );
+    return;
+  }
+
   // Handle map tile requests
   if (
     event.request.url.includes("tile.openstreetmap.org") ||
