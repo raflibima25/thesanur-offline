@@ -2,25 +2,31 @@ const CACHE_NAME = "pwa-the-sanur-v1";
 const DYNAMIC_CACHE = "dynamic-v1";
 const OFFLINE_URL = "/offline.html";
 const API_CACHE = "api-cache-v1";
+
 const API_CACHE_URLS = [
   'supabase.co/auth/v1/user',
   'supabase.co/rest/v1/user_profiles',
   'nominatim.openstreetmap.org/reverse'
 ];
 
+const CRITICAL_ASSETS = [
+  '/',
+  '/index.htmL',
+  '/manifest.json',
+  '/service-worker.js',
+  '/static/js/main.chunk.js',
+  '/static/js/0.chunk.js',
+  '/static/js/bundle.js',
+  '/static/css/main.chunk.css',
+  '/assets/logo/logo-ts.svg'
+];
+
 const CACHE_MAP_ASSETS = ["/leaflet.css", "/marker-icon.png", "/marker-icon-2x.png", "/marker-shadow.png"];
 
 const urlsToCache = [
-  OFFLINE_URL,
+  ...CRITICAL_ASSETS,
   ...CACHE_MAP_ASSETS,
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/static/js/main.chunk.js",
-  "/static/js/0.chunk.js",
-  "/static/js/bundle.js",
-  "/static/css/main.chunk.css",
-  "/assets/logo/logo-ts.svg",
+  OFFLINE_URL,
   "../public/assets",
 ];
 
@@ -35,29 +41,37 @@ const shouldCache = (request) => {
   return request.method === "GET" && !isApiRequest(request);
 };
 
-self.addEventListener("install", (event) => {
-  console.log("Service Worker installing.");
+self.addEventListener('install', (event) => {
+  console.log('Service Worker installing.');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log("Opened cache");
-      return cache.addAll(urlsToCache);
-    }),
+    Promise.all([
+      caches.open(CACHE_NAME).then((cache) => {
+        console.log('Caching critical assets');
+        return cache.addAll(CRITICAL_ASSETS);
+      }),
+      caches.open(DYNAMIC_CACHE).then((cache) => {
+        console.log('Caching other assets');
+        return cache.addAll(urlsToCache.filter(url => !CRITICAL_ASSETS.includes(url)));
+      })
+    ])
+    .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-self.addEventListener("activate", (event) => {
-  console.log("Service Worker activating.");
+self.addEventListener('activate', (event) => {
+  console.log('Service Worker activating.');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME && name !== DYNAMIC_CACHE && name !== API_CACHE)
-          .map((name) => caches.delete(name)),
-      );
-    }),
+    Promise.all([
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames
+            .filter((name) => name !== CACHE_NAME && name !== DYNAMIC_CACHE && name !== API_CACHE)
+            .map((name) => caches.delete(name))
+        );
+      }),
+      self.clients.claim()
+    ])
   );
-  return self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
@@ -67,11 +81,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Handle navigate requests differently
-  if (event.request.mode === "navigate") {
+  if (event.request.mode === 'navigate') {
     event.respondWith(
       (async () => {
         try {
-          // Coba cache terlebih dahulu
+          // Cek cache terlebih dahulu
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match(event.request);
           
@@ -80,72 +94,29 @@ self.addEventListener("fetch", (event) => {
           }
 
           // Jika tidak ada di cache, coba network
-          const networkResponse = await fetch(event.request);
-          
-          if (networkResponse.ok) {
-            // Cache response untuk penggunaan selanjutnya
-            const clonedResponse = networkResponse.clone();
-            cache.put(event.request, clonedResponse);
-            return networkResponse;
+          try {
+            const networkResponse = await fetch(event.request);
+            if (networkResponse.ok) {
+              const clonedResponse = networkResponse.clone();
+              cache.put(event.request, clonedResponse);
+              return networkResponse;
+            }
+          } catch (error) {
+            console.log('Network request failed, falling back to cache');
           }
-          
-          // Jika network response tidak ok, gunakan cached index
-          return cache.match('/index.html');
-        } catch (error) {
-          // Jika network error, gunakan cached index
-          const cache = await caches.open(CACHE_NAME);
+
+          // Jika network gagal atau response tidak ok, gunakan cached index.html
           const cachedIndex = await cache.match('/index.html');
-          
           if (cachedIndex) {
             return cachedIndex;
           }
-          
-          // Jika tidak ada cache sama sekali, kembalikan custom offline response
-          return new Response(
-            `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>The Sanur</title>
-                <style>
-                    body {
-                        margin: 0;
-                        padding: 16px;
-                        font-family: system-ui, -apple-system, sans-serif;
-                        background: #f9fafb;
-                        height: 100vh;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                    }
-                </style>
-            </head>
-            <body>
-                <div id="root"></div>
-                <script>
-                    // Ini akan memastikan app React kita di-mount
-                    window.addEventListener('load', () => {
-                        if (typeof window.__REACT_ROOT__ !== 'undefined') {
-                            window.__REACT_ROOT__.render(
-                                React.createElement(App, null)
-                            );
-                        }
-                    });
-                </script>
-            </body>
-            </html>
-            `,
-            {
-              status: 200,
-              headers: {
-                'Content-Type': 'text/html',
-                'Cache-Control': 'no-cache'
-              }
-            }
-          );
+
+          // Jika masih gagal, gunakan offline page
+          return cache.match(OFFLINE_URL);
+        } catch (error) {
+          console.error('Error in navigate handler:', error);
+          const cache = await caches.open(CACHE_NAME);
+          return cache.match(OFFLINE_URL);
         }
       })()
     );
