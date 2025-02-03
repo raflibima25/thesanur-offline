@@ -3,9 +3,9 @@ const DYNAMIC_CACHE = "dynamic-v1";
 const OFFLINE_URL = "/offline.html";
 const API_CACHE = "api-cache-v1";
 const API_CACHE_URLS = [
-  '/auth/user',
-  '/user_profiles',
-  '/reverse' // untuk geocoding
+  'supabase.co/auth/v1/user',
+  'supabase.co/rest/v1/user_profiles',
+  'nominatim.openstreetmap.org/reverse'
 ];
 
 const CACHE_MAP_ASSETS = ["/leaflet.css", "/marker-icon.png", "/marker-icon-2x.png", "/marker-shadow.png"];
@@ -102,7 +102,6 @@ self.addEventListener("fetch", (event) => {
       })
       .then(response => {
         if (response.ok && event.request.method === "GET") {
-          // Cache hanya untuk URL yang penting
           if (API_CACHE_URLS.some(url => event.request.url.includes(url))) {
             const responseToCache = response.clone();
             caches.open(API_CACHE).then(cache => {
@@ -128,7 +127,6 @@ self.addEventListener("fetch", (event) => {
         );
       })
     );
-    return;
   }
 
   // Handle regular requests (static assets, pages)
@@ -158,12 +156,23 @@ self.addEventListener("fetch", (event) => {
         .catch(() => {
           if (event.request.mode === "navigate") {
             event.respondWith(
-              caches.match(event.request)
-                .then(response => {
-                  if (response) return response;
-                  return fetch(event.request)
-                    .catch(() => caches.match('/index.html'));
-                })
+              (async () => {
+                try {
+                  // Try network first
+                  const preloadResponse = await event.preloadResponse;
+                  if (preloadResponse) {
+                    return preloadResponse;
+                  }
+        
+                  const networkResponse = await fetch(event.request);
+                  return networkResponse;
+                } catch (error) {
+                  // Network failed, try cache
+                  const cache = await caches.open(CACHE_NAME);
+                  const cachedResponse = await cache.match('/index.html');
+                  return cachedResponse;
+                }
+              })()
             );
             return;
           }

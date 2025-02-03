@@ -22,6 +22,10 @@ export function UserProvider({ children }) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (navigator.onLine) {
+      syncOfflineUpdates();
+    }
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -34,7 +38,7 @@ export function UserProvider({ children }) {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [queryClient]);
+  }, [queryClient, navigator.onLine, syncOfflineUpdates]);
 
   const {
     data: user,
@@ -45,6 +49,11 @@ export function UserProvider({ children }) {
     queryKey: ["user-profile"],
     queryFn: async () => {
       try {
+        const session = await supabase.auth.getSession();
+        if (!session.data.session) {
+          throw new Error("No session");
+        }
+
         if (!navigator.onLine) {
           // Coba ambil dari ProfileStorage saat offline
           const cachedProfile = await ProfileStorage.getProfile();
@@ -104,13 +113,17 @@ export function UserProvider({ children }) {
         };
       } catch (error) {
         console.error("Error in queryFn:", error);
-        return await ProfileStorage.getProfile();
+        if (!navigator.onLine) {
+          return await ProfileStorage.getProfile();
+        }
+        throw error;
       }
     },
     retry: 2,
     staleTime: 1000 * 60 * 5,
     cacheTime: 1000 * 60 * 30,
     refetchOnWindowFocus: true,
+    enabled: !!supabase.auth.getSession(),
   });
 
   const updateProfile = useCallback(
@@ -243,6 +256,22 @@ export function UserProvider({ children }) {
     },
     [user, queryClient],
   );
+
+  const syncOfflineUpdates = useCallback(async () => {
+    if (navigator.onLine) {
+      const pendingUpdates = await ProfileStorage.getPendingUpdates();
+      for (const profile of pendingUpdates) {
+        if (profile.offlineUpdates) {
+          try {
+            await updateProfile(profile.offlineUpdates);
+            await ProfileStorage.clearPendingSync(profile.id);
+          } catch (error) {
+            console.error('Failed to sync update:', error);
+          }
+        }
+      }
+    }
+  }, [updateProfile]);
 
   return (
     <UserContext.Provider
