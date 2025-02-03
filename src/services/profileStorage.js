@@ -14,6 +14,12 @@ export class ProfileStorage {
         });
       }
 
+      static async getProfile() {
+        const db = await this.initDB();
+        const allProfiles = await db.getAll(STORE_NAME);
+        return allProfiles[allProfiles.length - 1];
+      }
+
       static async saveProfile(profile) {
         const db = await this.initDB();
         await db.put(STORE_NAME, {

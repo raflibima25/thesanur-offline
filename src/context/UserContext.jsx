@@ -21,6 +21,87 @@ const getAvatarUrl = (url) => {
 export function UserProvider({ children }) {
   const queryClient = useQueryClient();
 
+  const updateProfile = useCallback(
+    async (updates) => {
+      try {
+        if (!navigator.onLine) {
+          // Simpan update ke offline storage
+          const currentProfile = await ProfileStorage.getProfile();
+          const updatedProfile = {
+            ...currentProfile,
+            ...updates,
+            updated_at: new Date().toISOString(),
+            pendingSync: true
+          };
+          await ProfileStorage.saveProfile(updatedProfile);
+          return updatedProfile;
+        }
+
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+        if (!authUser?.id) throw new Error("User not found");
+
+        // Cek apakah profile sudah ada
+        const { data: existingProfile, error: checkError } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        const updatedData = {
+          ...updates,
+          updated_at: new Date().toISOString(),
+        };
+
+        let result;
+
+        if (existingProfile) {
+          // Update existing profile
+          const { data, error } = await supabase
+            .from("user_profiles")
+            .update(updatedData)
+            .eq("user_id", authUser.id)
+            .select()
+            .single();
+
+          if (error) throw error;
+          result = data;
+        } else {
+          // Insert new profile
+          const { data, error } = await supabase
+            .from("user_profiles")
+            .insert({
+              ...updatedData,
+              user_id: authUser.id,
+              email: authUser.email,
+              created_at: new Date().toISOString(),
+            })
+            .select()
+            .single();
+
+          if (error) throw error;
+          result = data;
+        }
+
+        // Update cache
+        queryClient.setQueryData(["user-profile"], (oldData) => ({
+          ...oldData,
+          ...result,
+          avatar_url: result.avatar_url ? getAvatarUrl(result.avatar_url) : "",
+        }));
+
+        return result;
+      } catch (error) {
+        console.error("Error in updateProfile:", error);
+        throw error;
+      }
+    },
+    [queryClient],
+  );
+
   const syncOfflineUpdates = useCallback(async () => {
     if (navigator.onLine) {
       const pendingUpdates = await ProfileStorage.getPendingUpdates();
@@ -38,9 +119,13 @@ export function UserProvider({ children }) {
   }, [updateProfile]);
 
   useEffect(() => {
-    if (navigator.onLine) {
-      syncOfflineUpdates();
-    }
+    const initSync = async () => {
+      if (navigator.onLine) {
+        await syncOfflineUpdates();
+      }
+    };
+
+    initSync();
 
     const {
       data: { subscription },
@@ -54,7 +139,7 @@ export function UserProvider({ children }) {
     return () => {
       subscription?.unsubscribe();
     };
-  }, [queryClient, navigator.onLine, syncOfflineUpdates]);
+  }, [queryClient, syncOfflineUpdates]);
 
   const {
     data: user,
@@ -141,87 +226,6 @@ export function UserProvider({ children }) {
     refetchOnWindowFocus: true,
     enabled: !!supabase.auth.getSession(),
   });
-
-  const updateProfile = useCallback(
-    async (updates) => {
-      try {
-        if (!navigator.onLine) {
-          // Simpan update ke offline storage
-          const currentProfile = await ProfileStorage.getProfile();
-          const updatedProfile = {
-            ...currentProfile,
-            ...updates,
-            updated_at: new Date().toISOString(),
-            pendingSync: true
-          };
-          await ProfileStorage.saveProfile(updatedProfile);
-          return updatedProfile;
-        }
-
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
-        if (!authUser?.id) throw new Error("User not found");
-
-        // Cek apakah profile sudah ada
-        const { data: existingProfile, error: checkError } = await supabase
-          .from("user_profiles")
-          .select("*")
-          .eq("user_id", authUser.id)
-          .maybeSingle();
-
-        if (checkError) throw checkError;
-
-        const updatedData = {
-          ...updates,
-          updated_at: new Date().toISOString(),
-        };
-
-        let result;
-
-        if (existingProfile) {
-          // Update existing profile
-          const { data, error } = await supabase
-            .from("user_profiles")
-            .update(updatedData)
-            .eq("user_id", authUser.id)
-            .select()
-            .single();
-
-          if (error) throw error;
-          result = data;
-        } else {
-          // Insert new profile
-          const { data, error } = await supabase
-            .from("user_profiles")
-            .insert({
-              ...updatedData,
-              user_id: authUser.id,
-              email: authUser.email,
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
-
-          if (error) throw error;
-          result = data;
-        }
-
-        // Update cache
-        queryClient.setQueryData(["user-profile"], (oldData) => ({
-          ...oldData,
-          ...result,
-          avatar_url: result.avatar_url ? getAvatarUrl(result.avatar_url) : "",
-        }));
-
-        return result;
-      } catch (error) {
-        console.error("Error in updateProfile:", error);
-        throw error;
-      }
-    },
-    [queryClient],
-  );
 
   const updateAvatar = useCallback(
     async (avatarFile) => {
