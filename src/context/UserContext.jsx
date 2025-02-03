@@ -25,107 +25,106 @@ export function UserProvider({ children }) {
     async (updates) => {
       try {
         if (!navigator.onLine) {
-          // Simpan update ke offline storage
           const currentProfile = await ProfileStorage.getProfile();
-          const updatedProfile = {
-            ...currentProfile,
-            ...updates,
-            updated_at: new Date().toISOString(),
-            pendingSync: true
-          };
-          await ProfileStorage.saveProfile(updatedProfile);
-          return updatedProfile;
+          if (!currentProfile) throw new Error("No profile found");
+  
+          await ProfileStorage.saveOfflineUpdate(currentProfile, updates);
+          
+          // Update local UI
+          queryClient.setQueryData(["user-profile"], oldData => ({
+            ...oldData,
+            ...updates
+          }));
+  
+          return { ...currentProfile, ...updates };
         }
-
-        const {
-          data: { user: authUser },
-        } = await supabase.auth.getUser();
+  
+        // Online flow
+        const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser?.id) throw new Error("User not found");
-
-        // Cek apakah profile sudah ada
-        const { data: existingProfile, error: checkError } = await supabase
+  
+        const { data, error } = await supabase
           .from("user_profiles")
-          .select("*")
+          .update(updates)
           .eq("user_id", authUser.id)
-          .maybeSingle();
-
-        if (checkError) throw checkError;
-
-        const updatedData = {
-          ...updates,
-          updated_at: new Date().toISOString(),
+          .select()
+          .single();
+  
+        if (error) throw error;
+  
+        const updatedProfile = {
+          ...data,
+          avatar_url: data.avatar_url ? getAvatarUrl(data.avatar_url) : "",
         };
-
-        let result;
-
-        if (existingProfile) {
-          // Update existing profile
-          const { data, error } = await supabase
-            .from("user_profiles")
-            .update(updatedData)
-            .eq("user_id", authUser.id)
-            .select()
-            .single();
-
-          if (error) throw error;
-          result = data;
-        } else {
-          // Insert new profile
-          const { data, error } = await supabase
-            .from("user_profiles")
-            .insert({
-              ...updatedData,
-              user_id: authUser.id,
-              email: authUser.email,
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
-
-          if (error) throw error;
-          result = data;
-        }
-
-        // Update cache
-        queryClient.setQueryData(["user-profile"], (oldData) => ({
+  
+        // Update cache dan IndexedDB
+        await ProfileStorage.saveProfile(updatedProfile);
+        queryClient.setQueryData(["user-profile"], oldData => ({
           ...oldData,
-          ...result,
-          avatar_url: result.avatar_url ? getAvatarUrl(result.avatar_url) : "",
+          ...updatedProfile
         }));
-
-        return result;
+  
+        return updatedProfile;
       } catch (error) {
         console.error("Error in updateProfile:", error);
         throw error;
       }
     },
-    [queryClient],
+    [queryClient]
   );
 
   const syncOfflineUpdates = useCallback(async () => {
     if (navigator.onLine) {
-      const pendingUpdates = await ProfileStorage.getPendingUpdates();
-      for (const profile of pendingUpdates) {
-        if (profile.offlineUpdates) {
-          try {
-            await updateProfile(profile.offlineUpdates);
-            await ProfileStorage.clearPendingSync(profile.id);
-          } catch (error) {
-            console.error('Failed to sync update:', error);
+      try {
+        const pendingUpdates = await ProfileStorage.getPendingUpdates();
+        console.log('Found pending updates:', pendingUpdates);
+  
+        for (const profile of pendingUpdates) {
+          if (profile.offlineUpdates) {
+            try {
+              // Sync ke Supabase
+              const { data, error } = await supabase
+                .from("user_profiles")
+                .update(profile.offlineUpdates)
+                .eq("user_id", profile.user_id)
+                .select()
+                .single();
+  
+              if (error) throw error;
+  
+              // Clear pending status
+              await ProfileStorage.clearPendingSync(profile.id);
+              
+              // Update UI
+              queryClient.setQueryData(["user-profile"], oldData => ({
+                ...oldData,
+                ...data
+              }));
+  
+              console.log('Successfully synced profile:', data);
+            } catch (error) {
+              console.error('Failed to sync update:', error);
+            }
           }
         }
+      } catch (error) {
+        console.error('Error in syncOfflineUpdates:', error);
       }
     }
-  }, [updateProfile]);
+  }, [queryClient]);
 
   useEffect(() => {
-    const initSync = async () => {
-      if (navigator.onLine) {
-        await syncOfflineUpdates();
-      }
+    const handleOnline = () => {
+      console.log('Online - syncing data...');
+      syncOfflineUpdates();
     };
-
-    initSync();
+  
+    window.addEventListener('online', handleOnline);
+    
+    // Initial sync check
+    if (navigator.onLine) {
+      syncOfflineUpdates();
+    }
 
     const {
       data: { subscription },
@@ -137,7 +136,8 @@ export function UserProvider({ children }) {
     });
 
     return () => {
-      subscription?.unsubscribe();
+      subscription?.unsubscribe(),
+      window.removeEventListener('online', handleOnline);;
     };
   }, [queryClient, syncOfflineUpdates]);
 

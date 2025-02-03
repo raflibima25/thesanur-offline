@@ -37,21 +37,19 @@ export class ProfileStorage {
           offlineUpdates: updates,
           timestamp: new Date().toISOString()
         });
+
+        await db.put(STORE_NAME, updatedProfile);
+    
+        console.log('Saved offline update:', updatedProfile);
       }
 
       static async getPendingUpdates() {
         const db = await this.initDB();
-        // Gunakan getFromIndex untuk mengambil data berdasarkan index
         const tx = db.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
-        const index = store.index('pendingSync');
-        try {
-          // Query menggunakan index dengan IDBKeyRange
-          return await index.getAll(IDBKeyRange.only(true));
-        } catch (error) {
-          console.error('Error getting pending updates:', error);
-          return [];
-        }
+        const allProfiles = await store.getAll();
+        
+        return allProfiles.filter(profile => profile.pendingSync === true);
       }
 
       static async clearPendingSync(id) {
